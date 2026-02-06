@@ -40,7 +40,6 @@ export interface Client {
   temVeiculo?: boolean;
 }
 
-// Tipagem de veículo
 export interface Veiculo {
   id: number;
   placa: string;
@@ -48,6 +47,19 @@ export interface Veiculo {
   marca: string;
   ano: string;
   clientId: number;
+}
+
+interface VeiculoAtribuidoEvent extends CustomEvent {
+  detail: {
+    clienteId: number;
+    veiculo: Veiculo;
+  };
+}
+
+declare global {
+  interface WindowEventMap {
+    'veiculo-atribuido': VeiculoAtribuidoEvent;
+  }
 }
 
 const initialForm: FormData = {
@@ -72,14 +84,6 @@ const TIPOS_CLIENTE = [
   "Consignou"
 ];
 
-// Declaração do evento personalizado
-declare global {
-  interface Window {
-    addEventListener(type: 'veiculo-atribuido', listener: (event: CustomEvent) => void): void;
-    removeEventListener(type: 'veiculo-atribuido', listener: (event: CustomEvent) => void): void;
-  }
-}
-
 export function CadastroClientes() {
   const [clients, setClients] = useState<ClientComVeiculo[]>([]);
   const [search, setSearch] = useState("");
@@ -93,25 +97,21 @@ export function CadastroClientes() {
 
   const itemsPerPage = 5;
 
-  // Filtra clientes por busca
   const clientesPorBusca = clients.filter((c) =>
     `${c.nome} ${c.cep} ${c.bairro} ${c.cpf} ${c.celular} ${c.tipo}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
 
-  // Aplica filtro por tipo
   const clientesFiltrados = filter === "Todos"
     ? clientesPorBusca
     : clientesPorBusca.filter(c => c.tipo === filter);
 
-  // Cálculos da paginação
   const totalPages = Math.ceil(clientesFiltrados.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const clientesPaginados = clientesFiltrados.slice(startIndex, endIndex);
 
-  // CARREGA TODOS OS VEÍCULOS UMA VEZ SÓ
   const fetchVeiculos = async () => {
     try {
       console.log("🔄 Buscando veículos...");
@@ -121,7 +121,6 @@ export function CadastroClientes() {
         setTodosVeiculos(veiculos);
         console.log(`✅ ${veiculos.length} veículos carregados`);
 
-        // Debug: mostra veículos com clientId
         veiculos.forEach(v => {
           if (v.clientId) {
             console.log(`   🚗 ${v.placa} -> Cliente ID: ${v.clientId}`);
@@ -135,26 +134,29 @@ export function CadastroClientes() {
     }
   };
 
-  // CARREGA CLIENTES E VERIFICA SE TEM VEÍCULO
   const fetchClients = async () => {
     try {
       console.log("🔄 Buscando clientes...");
 
-      // Busca todos os clientes
       const response = await fetch("https://back-end-dveiculos.onrender.com/client");
       const clientesData: Client[] = await response.json();
 
       console.log(`✅ ${clientesData.length} clientes carregados do banco`);
       console.log(`📊 ${todosVeiculos.length} veículos disponíveis para verificação`);
 
-      // Para cada cliente, verifica se tem veículo
       const clientesComVeiculos: ClientComVeiculo[] = clientesData.map(cliente => {
-        const veiculosDoCliente = todosVeiculos.filter((v: any) => {
+        const veiculosDoCliente = todosVeiculos.filter(v => {
+          const veiculo = v as Veiculo & {
+            clienteId?: number;
+            client_id?: number;
+            ownerId?: number;
+          };
+
           const idClienteVeiculo =
-            v.clientId ??
-            v.clienteId ??
-            v.client_id ??
-            v.ownerId ??
+            veiculo.clientId ??
+            veiculo.clienteId ??
+            veiculo.client_id ??
+            veiculo.ownerId ??
             null;
 
           return Number(idClienteVeiculo) === Number(cliente.id);
@@ -167,7 +169,6 @@ export function CadastroClientes() {
         };
       });
 
-      // Conta quantos têm veículo
       const comVeiculo = clientesComVeiculos.filter(c => c.temVeiculo).length;
       console.log(`📈 ${comVeiculo} clientes têm veículo atribuído`);
 
@@ -177,7 +178,6 @@ export function CadastroClientes() {
     }
   };
 
-  // Carrega veículos primeiro, depois clientes
   useEffect(() => {
     const carregarTudo = async () => {
       await fetchVeiculos();
@@ -185,30 +185,32 @@ export function CadastroClientes() {
     carregarTudo();
   }, []);
 
-  // Quando veículos forem carregados, busca clientes
   useEffect(() => {
     if (todosVeiculos.length > 0) {
       fetchClients();
     }
   }, [todosVeiculos]);
 
-  // ESCUTA QUANDO VEÍCULO É ATRIBUÍDO
   useEffect(() => {
-    const handleVeiculoAtribuido = (event: CustomEvent<{ clienteId: number; veiculo: Veiculo }>) => {
+    const handleVeiculoAtribuido = (event: VeiculoAtribuidoEvent) => {
       const { clienteId, veiculo } = event.detail;
       setClients(prev =>
         prev.map(c =>
           c.id === clienteId
-            ? { ...c, veiculos: [...(c.veiculos || []), veiculo], temVeiculo: true }
+            ? {
+              ...c,
+              veiculos: [...(c.veiculos || []), veiculo],
+              temVeiculo: true
+            }
             : c
         )
       );
     };
 
-    window.addEventListener('veiculo-atribuido', handleVeiculoAtribuido as EventListener);
+    window.addEventListener('veiculo-atribuido', handleVeiculoAtribuido);
 
     return () => {
-      window.removeEventListener('veiculo-atribuido', handleVeiculoAtribuido as EventListener);
+      window.removeEventListener('veiculo-atribuido', handleVeiculoAtribuido);
     };
   }, []);
 
@@ -228,12 +230,10 @@ export function CadastroClientes() {
     setForm((prev) => ({ ...prev, [name]: maskedValue }));
   }
 
-  // Função para baixar procuração Word
   async function baixarProcuracaoWord(clienteId: number, clienteNome: string) {
     try {
       console.log(`📄 Gerando procuração para cliente ID: ${clienteId}, Nome: ${clienteNome}`);
 
-      // Primeiro verifica localmente se tem veículo
       const cliente = clients.find(c => c.id === clienteId);
       if (!cliente?.temVeiculo) {
         alert(`${clienteNome} ainda não possui veículo atribuído.\nVá para a página de 'Lista de Veículos' e atribua um veículo primeiro.`);
@@ -242,7 +242,6 @@ export function CadastroClientes() {
 
       console.log(`✅ Cliente ${clienteNome} tem veículo. Gerando procuração...`);
 
-      // Agora gera a procuração
       const response = await fetch(`https://back-end-dveiculos.onrender.com/client/${clienteId}/procuracao-docx`);
 
       if (!response.ok) {
@@ -268,14 +267,21 @@ export function CadastroClientes() {
 
       console.log("✅ Procuração baixada com sucesso!");
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Erro ao baixar procuração:", error);
-      alert(`Erro ao gerar procuração: ${error.message || "Tente novamente."}`);
+      let errorMessage = "Tente novamente.";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      alert(`Erro ao gerar procuração: ${errorMessage}`);
       return false;
     }
   }
 
-  // Função para gerar procuração
   async function handleGerarProcuracao(id: number, nome: string) {
     const confirmacao = window.confirm(
       `Deseja gerar a procuração em Word para o cliente:\n\n"${nome}"?\n\nO documento será baixado automaticamente.`
@@ -289,19 +295,26 @@ export function CadastroClientes() {
       if (sucesso) {
         alert(`✅ Procuração gerada com sucesso para ${nome}!\nO documento Word foi baixado automaticamente.`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("❌ Erro ao gerar procuração:", error);
-      alert("Erro ao gerar procuração. Verifique se o cliente tem um veículo atribuído.");
+
+      let errorMessage = "Erro ao gerar procuração. Verifique se o cliente tem um veículo atribuído.";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      alert(`Erro: ${errorMessage}`);
     }
   }
 
-  // Handle Submit (APENAS PARA CADASTRAR/EDITAR CLIENTE)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Validações
       const camposObrigatorios: (keyof FormData)[] = [
         'nome', 'cpf', 'celular', 'tipo',
         'rua', 'bairro', 'cidade', 'cep'
@@ -315,7 +328,6 @@ export function CadastroClientes() {
         return;
       }
 
-      // Remove máscaras
       const cpfFormatado = form.cpf.replace(/\D/g, '');
       const cepFormatado = form.cep.replace(/\D/g, '');
       const celularFormatado = form.celular.replace(/\D/g, '');
@@ -327,7 +339,6 @@ export function CadastroClientes() {
         return;
       }
 
-      // Verifica se CPF já existe (para novo cadastro)
       if (!editingClient) {
         const cpfExistente = clients.some(c => {
           const cpfBanco = c.cpf.replace(/\D/g, '');
@@ -341,7 +352,6 @@ export function CadastroClientes() {
         }
       }
 
-      // Prepara payload
       const payload = {
         nome: form.nome.trim(),
         rua: form.rua.trim(),
@@ -374,7 +384,6 @@ export function CadastroClientes() {
 
       const novoCliente: Client = await response.json();
 
-      // Atualiza localmente - mantém temVeiculo se já existia
       if (editingClient) {
         const clienteAntigo = clients.find(c => c.id === novoCliente.id);
         const clienteAtualizado: ClientComVeiculo = {
@@ -389,16 +398,23 @@ export function CadastroClientes() {
         setClients(prev => [...prev, { ...novoCliente, temVeiculo: false, veiculos: [] }]);
       }
 
-      // Limpa formulário e fecha modal
       setEditingClient(null);
       setForm(initialForm);
       setModalOpen(false);
 
       alert(editingClient ? "Cliente atualizado com sucesso!" : "Cliente cadastrado com sucesso!");
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ ERRO AO SALVAR:", error);
-      alert(`Erro ao cadastrar cliente: ${error.message || "Verifique os dados e tente novamente."}`);
+      let errorMessage = "Erro ao cadastrar cliente. Verifique os dados e tente novamente.";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      alert(`Erro ao cadastrar cliente: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -448,13 +464,18 @@ export function CadastroClientes() {
 
       setClients(prev => prev.filter(c => c.id !== id));
       alert("Cliente deletado com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ ERRO AO DELETAR:", error);
-      alert("Erro ao deletar cliente. Tente novamente mais tarde.");
+      let errorMessage = "Erro ao deletar cliente. Tente novamente mais tarde.";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      alert(errorMessage);
     }
   }
 
-  // Funções de máscara (mantém as mesmas)
   function maskCPF(value: string) {
     return value.replace(/\D/g, "")
       .replace(/(\d{3})(\d)/, "$1.$2")
@@ -530,7 +551,6 @@ export function CadastroClientes() {
 
   return (
     <div className="w-full p-4">
-      {/* Cabeçalho com busca e filtro */}
       <div className="flex flex-col md:flex-row justify-center items-center mb-6 gap-4">
         <div className="flex-1 max-w-md">
           <input
@@ -543,7 +563,6 @@ export function CadastroClientes() {
         </div>
       </div>
 
-      {/* Filtros por tipo de cliente */}
       <div className="mt-12">
         <div className="flex flex-wrap gap-4 mb-4 ">
           {TIPOS_CLIENTE.map((tipo) => (
@@ -566,7 +585,6 @@ export function CadastroClientes() {
           </div>
         )}
 
-        {/* Tabela */}
         <TableCliente
           clientes={clientesPaginados}
           currentPage={currentPage}
@@ -584,7 +602,6 @@ export function CadastroClientes() {
         />
       </div>
 
-      {/* Modal */}
       <ModalCliente modalOpen={modalOpen} title={editingClient ? "Editar Cliente" : "Adicionar Cliente"} onClose={handleCloseModal}>
         <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleSubmit}>
           <input type="text" name="nome" placeholder="Nome *" value={form.nome} onChange={handleChange} className="p-2 bg-slate-800 rounded-md text-white focus:ring-2 focus:ring-orange-500 focus:outline-none" required disabled={isLoading} />
@@ -616,4 +633,4 @@ export function CadastroClientes() {
       </ModalCliente>
     </div>
   );
-}
+} 
