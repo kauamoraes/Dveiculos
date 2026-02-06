@@ -12,6 +12,23 @@ interface TableClienteProps {
   onGerarProcuracao: (id: number, nome: string) => Promise<void>;
 }
 
+const maskCPF = (cpf?: string) => {
+  if (!cpf) return "-";
+  const digits = cpf.replace(/\D/g, "").padStart(11, "0").slice(0, 11);
+  return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+};
+
+const maskPhone = (phone?: string) => {
+  if (!phone) return "-";
+  const digits = phone.replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length <= 10) {
+    return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, "($1) $2-$3");
+  }
+
+  return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, "($1) $2-$3");
+};
+
 export function TableCliente({
   clientes,
   currentPage,
@@ -25,7 +42,7 @@ export function TableCliente({
 }: TableClienteProps) {
   return (
     <div>
-      {/* Cabeçalho da tabela */}
+      {/* Cabeçalho */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-white">Lista de Clientes</h2>
         <button
@@ -41,6 +58,7 @@ export function TableCliente({
         <table className="w-full border-collapse text-white">
           <thead className="bg-slate-800">
             <tr>
+              <th className="p-3 border">ID</th>
               <th className="p-3 border">Nome</th>
               <th className="p-3 border">CPF</th>
               <th className="p-3 border">Celular</th>
@@ -50,24 +68,26 @@ export function TableCliente({
           </thead>
           <tbody>
             {clientes.map((cliente) => {
-              // Verifica se o cliente tem veículo
-             const temVeiculo = (cliente.vehicles?.length ?? 0) > 0;
-
+              const temVeiculo = (cliente.vehicles?.length ?? 0) > 0;
 
               return (
-                <tr
-                  key={cliente.id}
-                  className="text-center hover:bg-slate-700"
-                >
+                <tr key={cliente.id} className="text-center hover:bg-slate-700">
+                  <td className="p-3 border">{cliente.id}</td>
                   <td className="p-3 border">{cliente.nome}</td>
-                  <td className="p-3 border">{cliente.cpf}</td>
-                  <td className="p-3 border">{cliente.celular}</td>
+                  <td className="p-3 border">{maskCPF(cliente.cpf)}</td>
+                  <td className="p-3 border">{maskPhone(cliente.celular)}</td>
                   <td className="p-3 border">
-                    <span className={`px-2 py-1 rounded-full text-xs ${cliente.tipo === "Comprou" ? "bg-green-500/20 text-green-400" :
-                      cliente.tipo === "Vendeu" ? "bg-red-500/20 text-red-400" :
-                        cliente.tipo === "Trocou" ? "bg-blue-500/20 text-blue-400" :
-                          "bg-yellow-500/20 text-yellow-400"
-                      }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${
+                        cliente.tipo === "Comprou"
+                          ? "bg-green-500/20 text-green-400"
+                          : cliente.tipo === "Vendeu"
+                          ? "bg-red-500/20 text-red-400"
+                          : cliente.tipo === "Trocou"
+                          ? "bg-blue-500/20 text-blue-400"
+                          : "bg-yellow-500/20 text-yellow-400"
+                      }`}
+                    >
                       {cliente.tipo}
                     </span>
                   </td>
@@ -88,7 +108,9 @@ export function TableCliente({
 
                       {temVeiculo ? (
                         <button
-                          onClick={() => onGerarProcuracao(cliente.id, cliente.nome)}
+                          onClick={() =>
+                            onGerarProcuracao(cliente.id, cliente.nome)
+                          }
                           className="bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 transition text-sm"
                           title="Gerar Procuração"
                         >
