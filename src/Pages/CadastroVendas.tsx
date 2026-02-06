@@ -1,11 +1,73 @@
 import { useEffect, useState } from "react"
 import { ModalVendas } from "../components/vendas/ModalVendas"
 import Select from "react-select"
-
 import "../style.css"
-import type { Client, Vehicle, Sale } from "../types"
 
-const initialForm = {
+// Interfaces
+interface Client {
+  id: number;
+  nome: string;
+  rg: string;
+  cep: string;
+  cpf: string;
+  rua: string;
+  bairro: string;
+  cidade: string;
+  celular: string;
+  tipo: string;
+}
+
+interface Vehicle {
+  id: number;
+  marca: string;
+  modelo: string;
+  placa: string;
+  anoModelo: string;
+  cor: string;
+  chassi: string;
+  valorCompra: number;
+  documentoTipo?: string;
+  renavan: string;
+  km: number;
+  // Adicione outros campos se necessário
+}
+
+interface Sale {
+  id: number;
+  dataVenda: string;
+  valorVenda: number;
+  financiou: boolean;
+  banco?: string;
+  possuiAlienacao?: boolean;
+  valorFinanciado?: number;
+  valorEntrada?: number;
+  valorParcela?: number;
+  quantidadeParcelas?: number;
+  diaVencimento?: number;
+  observacoes?: string;
+  clientId: number;
+  vehicleId: number;
+  client: Client;
+  vehicle: Vehicle;
+}
+
+interface FormData {
+  dataVenda: string;
+  valorVenda: string;
+  financiou: string;
+  banco: string;
+  possuiAlienacao: string;
+  valorFinanciado: string;
+  valorEntrada: string;
+  valorParcela: string;
+  quantidadeParcelas: string;
+  diaVencimento: string;
+  observacoes: string;
+  clientId: number;
+  vehicleId: number;
+}
+
+const initialForm: FormData = {
   dataVenda: "",
   valorVenda: "",
   financiou: "",
@@ -22,14 +84,13 @@ const initialForm = {
 }
 
 export function CadastroVendas() {
-
   const [vendas, setVendas] = useState<Sale[]>([])
   const [search, setSearch] = useState("")
   const [modalOpen, setModalOpen] = useState(false)
   const [clientes, setClientes] = useState<Client[]>([])
   const [veiculos, setVeiculos] = useState<Vehicle[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [form, setForm] = useState(initialForm)
+  const [form, setForm] = useState<FormData>(initialForm)
   const [editingSale, setEditingSale] = useState<Sale | null>(null)
 
   // Carrega dados
@@ -42,9 +103,9 @@ export function CadastroVendas() {
           fetch("https://back-end-dveiculos.onrender.com/vehicle")
         ])
 
-        const salesData = await salesRes.json()
-        const clientData = await clientRes.json()
-        const vehicleData = await vehicleRes.json()
+        const salesData: Sale[] = await salesRes.json()
+        const clientData: Client[] = await clientRes.json()
+        const vehicleData: Vehicle[] = await vehicleRes.json()
 
         setVendas(salesData)
         setClientes(clientData)
@@ -198,7 +259,7 @@ export function CadastroVendas() {
 
         // Recarrega veículos para atualizar disponibilidade
         const vehicleRes = await fetch("https://back-end-dveiculos.onrender.com/vehicle")
-        const vehicleData = await vehicleRes.json()
+        const vehicleData: Vehicle[] = await vehicleRes.json()
         setVeiculos(vehicleData)
 
         alert("Venda excluída com sucesso!")
@@ -206,9 +267,15 @@ export function CadastroVendas() {
         const errorText = await response.text()
         alert(`Erro ao excluir venda: ${errorText}`)
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Erro ao excluir venda:", error)
-      alert("Erro ao excluir venda. Tente novamente.")
+      let errorMessage = "Erro ao excluir venda. Tente novamente."
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      alert(errorMessage)
     }
   }
 
@@ -265,7 +332,7 @@ export function CadastroVendas() {
       })
 
       if (response.ok) {
-        const savedSale = await response.json()
+        const savedSale: Sale = await response.json()
 
         // Busca cliente e veículo para adicionar aos dados
         const clienteDaVenda = clientes.find(c => c.id === form.clientId)
@@ -286,14 +353,37 @@ export function CadastroVendas() {
           // Adiciona nova venda
           setVendas(prev => [...prev, {
             ...savedSale,
-            client: clienteDaVenda || { id: 0, nome: "Desconhecido", cpf: "", rua: "", bairro: "", cidade: "", cep: "", celular: "", tipo: "" },
-            vehicle: veiculoDaVenda || { id: 0, marca: "", modelo: "", placa: "", anoModelo: "", cor: "", chassi: "", valorCompra: 0, documentoTipo: "", renavan: "", km: 0 }
+            client: clienteDaVenda || { 
+              id: 0, 
+              nome: "Desconhecido", 
+              cpf: "", 
+              rua: "", 
+              bairro: "", 
+              cidade: "", 
+              cep: "", 
+              celular: "", 
+              tipo: "", 
+              rg: "" 
+            },
+            vehicle: veiculoDaVenda || { 
+              id: 0, 
+              marca: "", 
+              modelo: "", 
+              placa: "", 
+              anoModelo: "", 
+              cor: "", 
+              chassi: "", 
+              valorCompra: 0, 
+              documentoTipo: "", 
+              renavan: "", 
+              km: 0 
+            }
           }])
         }
 
         // Recarrega veículos para atualizar disponibilidade
         const vehicleRes = await fetch("https://back-end-dveiculos.onrender.com/vehicle")
-        const vehicleData = await vehicleRes.json()
+        const vehicleData: Vehicle[] = await vehicleRes.json()
         setVeiculos(vehicleData)
 
         resetForm()
@@ -306,9 +396,15 @@ export function CadastroVendas() {
         alert("Erro ao salvar venda")
       }
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Erro ao salvar venda:", error)
-      alert("Erro ao salvar venda")
+      let errorMessage = "Erro ao salvar venda"
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      alert(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -339,7 +435,6 @@ export function CadastroVendas() {
         </button>
       </div>
 
-      {/* Tabela */}
       {/* Tabela */}
       <div className="relative w-full">
         {/* VIEWPORT INVISÍVEL (ÚNICO LUGAR QUE PODE ROLAR) */}
@@ -456,8 +551,6 @@ export function CadastroVendas() {
           )}
         </div>
       </div>
-
-
 
       {/* Modal */}
       <ModalVendas
@@ -595,7 +688,7 @@ export function CadastroVendas() {
           {/* Veículo - OBRIGATÓRIO */}
           <div className="col-span-2">
             {veiculosDisponiveis.length > 0 || editingSale ? (
-              <Select
+              <Select<{ value: number; label: string }>
                 options={vehicleOptions}
                 placeholder="Selecione o Veículo..."
                 isClearable
@@ -643,7 +736,7 @@ export function CadastroVendas() {
 
           {/* Cliente - OBRIGATÓRIO */}
           <div className="col-span-2">
-            <Select
+            <Select<{ value: number; label: string }>
               options={clientsOptions}
               placeholder="Selecione o cliente..."
               isClearable

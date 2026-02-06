@@ -3,7 +3,34 @@ import { ModalVeiculo } from "../components/veiculos/ModalVeiculos";
 import { Table } from "../components/veiculos/TableVeiculo";
 import { PaginacaoVeiculo } from "../components/veiculos/PaginacaoVeiculo";
 import Select from "react-select";
-import type { Veiculo, Client } from "../types";
+
+// Interfaces
+interface Client {
+  id: number;
+  nome: string;
+  // Adicione outros campos do cliente se necessário
+}
+
+interface Veiculo {
+  id: number;
+  dataCompra: string;
+  marca: string;
+  modelo: string;
+  placa: string;
+  anoModelo: string;
+  cor: string;
+  chassi: string;
+  renavan: string;
+  valorCompra: number;
+  km: number;
+  status: string;
+  documentoTipo: string;
+  clientId: number;
+  client?: {
+    id: number;
+    nome: string;
+  };
+}
 
 interface FormData {
   dataCompra: string;
@@ -19,6 +46,13 @@ interface FormData {
   status: string;
   documentoTipo: string;
   clientId: number;
+}
+
+// Declaração do evento personalizado
+declare global {
+  interface WindowEventMap {
+    'veiculo-atribuido': CustomEvent<{ clienteId: number }>;
+  }
 }
 
 const initialForm: FormData = {
@@ -101,7 +135,7 @@ export function ListVeiculos() {
   useEffect(() => {
     fetch("https://back-end-dveiculos.onrender.com/client")
       .then((res) => res.json())
-      .then(setClientes)
+      .then((data: Client[]) => setClientes(data))
       .catch(console.error);
   }, []);
 
@@ -209,7 +243,7 @@ export function ListVeiculos() {
         throw new Error(`Erro ${response.status}: ${errorText}`);
       }
 
-      const savedVehicle = await response.json();
+      const savedVehicle: Veiculo = await response.json();
       console.log("Resposta do servidor:", savedVehicle);
 
       // Busca o cliente para adicionar ao novo veículo
@@ -219,14 +253,23 @@ export function ListVeiculos() {
       if (editingVehicle) {
         setVeiculos(prev =>
           prev.map(v => v.id === savedVehicle.id
-            ? { ...savedVehicle, client: clienteDoVeiculo ? { id: clienteDoVeiculo.id, nome: clienteDoVeiculo.nome } : { id: 0, nome: "Desconhecido" } }
+            ? { 
+                ...savedVehicle, 
+                client: clienteDoVeiculo ? { 
+                  id: clienteDoVeiculo.id, 
+                  nome: clienteDoVeiculo.nome 
+                } : undefined 
+              }
             : v
           )
         );
       } else {
         setVeiculos(prev => [...prev, {
           ...savedVehicle,
-          client: clienteDoVeiculo ? { id: clienteDoVeiculo.id, nome: clienteDoVeiculo.nome } : { id: 0, nome: "Desconhecido" }
+          client: clienteDoVeiculo ? { 
+            id: clienteDoVeiculo.id, 
+            nome: clienteDoVeiculo.nome 
+          } : undefined
         }]);
       }
 
@@ -245,9 +288,17 @@ export function ListVeiculos() {
 
       alert(editingVehicle ? "Veículo atualizado com sucesso!" : "Veículo cadastrado com sucesso!");
 
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("ERRO AO SALVAR:", error);
-      alert("Erro ao salvar veículo. Tente novamente.");
+      let errorMessage = "Erro ao salvar veículo. Tente novamente.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -298,9 +349,15 @@ export function ListVeiculos() {
 
       setVeiculos(prev => prev.filter(v => v.id !== id));
       alert("Veículo excluído com sucesso!");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("ERRO AO EXCLUIR:", error);
-      alert("Erro ao excluir veículo. Tente novamente.");
+      let errorMessage = "Erro ao excluir veículo. Tente novamente.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     }
   }
 
@@ -557,7 +614,7 @@ export function ListVeiculos() {
 
               if (value.length > 6) value = value.substring(0, 6);
 
-              const numericValue = value ? parseInt(value, 10) : "";
+              const numericValue = value ? parseInt(value, 10) : 0;
 
               handleChange({
                 target: {

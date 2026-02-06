@@ -2,22 +2,17 @@ import { useEffect, useState } from "react";
 import { ModalCliente } from "../components/clientes/ModalCliente";
 import { TableCliente } from "../components/clientes/TableCliente";
 
-interface ClientComVeiculo extends Client {
-  temVeiculo?: boolean;
-  veiculos?: Veiculo[];
-}
-
-interface FormData {
-  nome: string;
-  email: string;
-  cpf: string;
-  rg: string;
-  rua: string;
-  bairro: string;
-  cidade: string;
-  cep: string;
-  celular: string;
-  tipo: string;
+// Interfaces devem vir primeiro
+export interface Veiculo {
+  id: number;
+  placa: string;
+  modelo: string;
+  marca: string;
+  ano: string;
+  clientId: number;
+  clienteId?: number;
+  client_id?: number;
+  ownerId?: number;
 }
 
 export interface Client {
@@ -40,25 +35,40 @@ export interface Client {
   temVeiculo?: boolean;
 }
 
-export interface Veiculo {
-  id: number;
-  placa: string;
-  modelo: string;
-  marca: string;
-  ano: string;
-  clientId: number;
+interface ClientComVeiculo extends Client {
+  temVeiculo?: boolean;
+  veiculos?: Veiculo[];
 }
 
-interface VeiculoAtribuidoEvent extends CustomEvent {
-  detail: {
-    clienteId: number;
-    veiculo: Veiculo;
-  };
+interface FormData {
+  nome: string;
+  email: string;
+  cpf: string;
+  rg: string;
+  rua: string;
+  bairro: string;
+  cidade: string;
+  cep: string;
+  celular: string;
+  tipo: string;
 }
 
+// Interface do detail do evento
+interface VeiculoAtribuidoEventDetail {
+  clienteId: number;
+  veiculo: Veiculo;
+}
+
+// Declaração do evento personalizado - CORRIGIDA
 declare global {
-  interface WindowEventMap {
-    'veiculo-atribuido': VeiculoAtribuidoEvent;
+  interface Window {
+    addEventListener(
+      type: 'veiculo-atribuido',
+      listener: (this: Window, ev: CustomEvent<VeiculoAtribuidoEventDetail>) => void,
+      options?: boolean | AddEventListenerOptions
+    ): void;
+    
+    dispatchEvent(event: CustomEvent<VeiculoAtribuidoEventDetail>): boolean;
   }
 }
 
@@ -82,7 +92,9 @@ const TIPOS_CLIENTE = [
   "Financiou - Terceiro",
   "Vendeu",
   "Consignou"
-];
+] as const;
+
+type TipoCliente = typeof TIPOS_CLIENTE[number];
 
 export function CadastroClientes() {
   const [clients, setClients] = useState<ClientComVeiculo[]>([]);
@@ -91,7 +103,7 @@ export function CadastroClientes() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [form, setForm] = useState<FormData>(initialForm);
-  const [filter, setFilter] = useState("Todos");
+  const [filter, setFilter] = useState<TipoCliente>("Todos");
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [todosVeiculos, setTodosVeiculos] = useState<Veiculo[]>([]);
 
@@ -129,7 +141,7 @@ export function CadastroClientes() {
       } else {
         console.error("❌ Erro ao buscar veículos:", response.status);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("❌ Erro ao carregar veículos:", error);
     }
   };
@@ -146,17 +158,11 @@ export function CadastroClientes() {
 
       const clientesComVeiculos: ClientComVeiculo[] = clientesData.map(cliente => {
         const veiculosDoCliente = todosVeiculos.filter(v => {
-          const veiculo = v as Veiculo & {
-            clienteId?: number;
-            client_id?: number;
-            ownerId?: number;
-          };
-
-          const idClienteVeiculo =
-            veiculo.clientId ??
-            veiculo.clienteId ??
-            veiculo.client_id ??
-            veiculo.ownerId ??
+          const idClienteVeiculo = 
+            v.clientId ?? 
+            v.clienteId ?? 
+            v.client_id ?? 
+            v.ownerId ?? 
             null;
 
           return Number(idClienteVeiculo) === Number(cliente.id);
@@ -173,7 +179,7 @@ export function CadastroClientes() {
       console.log(`📈 ${comVeiculo} clientes têm veículo atribuído`);
 
       setClients(clientesComVeiculos);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("❌ Erro ao carregar clientes:", error);
     }
   };
@@ -192,25 +198,26 @@ export function CadastroClientes() {
   }, [todosVeiculos]);
 
   useEffect(() => {
-    const handleVeiculoAtribuido = (event: VeiculoAtribuidoEvent) => {
+    const handleVeiculoAtribuido = (event: CustomEvent<VeiculoAtribuidoEventDetail>) => {
       const { clienteId, veiculo } = event.detail;
       setClients(prev =>
         prev.map(c =>
           c.id === clienteId
-            ? {
-              ...c,
-              veiculos: [...(c.veiculos || []), veiculo],
-              temVeiculo: true
-            }
+            ? { 
+                ...c, 
+                veiculos: [...(c.veiculos || []), veiculo], 
+                temVeiculo: true 
+              }
             : c
         )
       );
     };
 
-    window.addEventListener('veiculo-atribuido', handleVeiculoAtribuido);
+    // Agora o TypeScript reconhece o tipo corretamente
+    window.addEventListener('veiculo-atribuido', handleVeiculoAtribuido as EventListener);
 
     return () => {
-      window.removeEventListener('veiculo-atribuido', handleVeiculoAtribuido);
+      window.removeEventListener('veiculo-atribuido', handleVeiculoAtribuido as EventListener);
     };
   }, []);
 
@@ -230,7 +237,7 @@ export function CadastroClientes() {
     setForm((prev) => ({ ...prev, [name]: maskedValue }));
   }
 
-  async function baixarProcuracaoWord(clienteId: number, clienteNome: string) {
+  async function baixarProcuracaoWord(clienteId: number, clienteNome: string): Promise<boolean> {
     try {
       console.log(`📄 Gerando procuração para cliente ID: ${clienteId}, Nome: ${clienteNome}`);
 
@@ -270,13 +277,13 @@ export function CadastroClientes() {
     } catch (error: unknown) {
       console.error("❌ Erro ao baixar procuração:", error);
       let errorMessage = "Tente novamente.";
-
+      
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-
+      
       alert(`Erro ao gerar procuração: ${errorMessage}`);
       return false;
     }
@@ -297,15 +304,15 @@ export function CadastroClientes() {
       }
     } catch (error: unknown) {
       console.error("❌ Erro ao gerar procuração:", error);
-
+      
       let errorMessage = "Erro ao gerar procuração. Verifique se o cliente tem um veículo atribuído.";
-
+      
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-
+      
       alert(`Erro: ${errorMessage}`);
     }
   }
@@ -407,13 +414,13 @@ export function CadastroClientes() {
     } catch (error: unknown) {
       console.error("❌ ERRO AO SALVAR:", error);
       let errorMessage = "Erro ao cadastrar cliente. Verifique os dados e tente novamente.";
-
+      
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-
+      
       alert(`Erro ao cadastrar cliente: ${errorMessage}`);
     } finally {
       setIsLoading(false);
@@ -460,23 +467,29 @@ export function CadastroClientes() {
         method: "DELETE"
       });
 
-      if (!response.ok) throw new Error(`Erro ${response.status}: Não foi possível deletar o cliente.`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro ${response.status}: Não foi possível deletar o cliente. ${errorText}`);
+      }
 
       setClients(prev => prev.filter(c => c.id !== id));
       alert("Cliente deletado com sucesso!");
     } catch (error: unknown) {
       console.error("❌ ERRO AO DELETAR:", error);
       let errorMessage = "Erro ao deletar cliente. Tente novamente mais tarde.";
-
+      
       if (error instanceof Error) {
         errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
-
+      
       alert(errorMessage);
     }
   }
 
-  function maskCPF(value: string) {
+  // Funções de máscara
+  function maskCPF(value: string): string {
     return value.replace(/\D/g, "")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
@@ -484,13 +497,13 @@ export function CadastroClientes() {
       .slice(0, 14);
   }
 
-  function maskCEP(value: string) {
+  function maskCEP(value: string): string {
     return value.replace(/\D/g, "")
       .replace(/(\d{5})(\d)/, "$1-$2")
       .slice(0, 9);
   }
 
-  function maskCelular(value: string) {
+  function maskCelular(value: string): string {
     const cleaned = value.replace(/\D/g, "");
     if (cleaned.length <= 10) {
       return cleaned.replace(/(\d{2})(\d)/, "($1) $2")
@@ -503,7 +516,7 @@ export function CadastroClientes() {
     }
   }
 
-  function maskRG(value: string) {
+  function maskRG(value: string): string {
     return value.replace(/\D/g, "")
       .replace(/(\d{2})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
@@ -511,7 +524,7 @@ export function CadastroClientes() {
       .slice(0, 12);
   }
 
-  function maskCPFFromDB(cpf: string) {
+  function maskCPFFromDB(cpf: string): string {
     const cleaned = cpf.replace(/\D/g, "");
     if (cpf.includes('.') && cpf.includes('-')) return cpf;
     return cleaned.replace(/(\d{3})(\d)/, "$1.$2")
@@ -520,13 +533,13 @@ export function CadastroClientes() {
       .slice(0, 14);
   }
 
-  function maskCEPFromDB(cep: string) {
+  function maskCEPFromDB(cep: string): string {
     const cleaned = cep.replace(/\D/g, "");
     if (cep.includes('-')) return cep;
     return cleaned.replace(/(\d{5})(\d)/, "$1-$2").slice(0, 9);
   }
 
-  function maskCelularFromDB(celular: string) {
+  function maskCelularFromDB(celular: string): string {
     const cleaned = celular.replace(/\D/g, "");
     if (celular.includes('(') && celular.includes(')')) return celular;
     if (cleaned.length <= 10) {
@@ -540,7 +553,7 @@ export function CadastroClientes() {
     }
   }
 
-  function maskRGFromDB(rg: string) {
+  function maskRGFromDB(rg: string): string {
     const cleaned = rg.replace(/\D/g, "");
     if (rg.includes('.') && rg.includes('-')) return rg;
     return cleaned.replace(/(\d{2})(\d)/, "$1.$2")
@@ -633,4 +646,4 @@ export function CadastroClientes() {
       </ModalCliente>
     </div>
   );
-} 
+}
