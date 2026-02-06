@@ -8,10 +8,10 @@ import Select from "react-select";
 interface Client {
   id: number;
   nome: string;
-  // Adicione outros campos do cliente se necessário
 }
 
-interface Veiculo {
+// Exporte a interface
+export interface Veiculo {
   id: number;
   dataCompra: string;
   marca: string;
@@ -30,6 +30,7 @@ interface Veiculo {
     id: number;
     nome: string;
   };
+  tipoDocumento?: string;
 }
 
 interface FormData {
@@ -253,22 +254,22 @@ export function ListVeiculos() {
       if (editingVehicle) {
         setVeiculos(prev =>
           prev.map(v => v.id === savedVehicle.id
-            ? { 
-                ...savedVehicle, 
-                client: clienteDoVeiculo ? { 
-                  id: clienteDoVeiculo.id, 
-                  nome: clienteDoVeiculo.nome 
-                } : undefined 
-              }
+            ? {
+              ...savedVehicle,
+              client: clienteDoVeiculo ? {
+                id: clienteDoVeiculo.id,
+                nome: clienteDoVeiculo.nome
+              } : undefined
+            }
             : v
           )
         );
       } else {
         setVeiculos(prev => [...prev, {
           ...savedVehicle,
-          client: clienteDoVeiculo ? { 
-            id: clienteDoVeiculo.id, 
-            nome: clienteDoVeiculo.nome 
+          client: clienteDoVeiculo ? {
+            id: clienteDoVeiculo.id,
+            nome: clienteDoVeiculo.nome
           } : undefined
         }]);
       }
@@ -291,13 +292,13 @@ export function ListVeiculos() {
     } catch (error: unknown) {
       console.error("ERRO AO SALVAR:", error);
       let errorMessage = "Erro ao salvar veículo. Tente novamente.";
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-      
+
       alert(errorMessage);
     } finally {
       setIsLoading(false);
@@ -352,11 +353,11 @@ export function ListVeiculos() {
     } catch (error: unknown) {
       console.error("ERRO AO EXCLUIR:", error);
       let errorMessage = "Erro ao excluir veículo. Tente novamente.";
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       alert(errorMessage);
     }
   }

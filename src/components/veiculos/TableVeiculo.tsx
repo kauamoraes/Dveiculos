@@ -1,4 +1,4 @@
-import type { Veiculo } from "../../types";
+import type { Veiculo } from "../../Pages/listVeiculos";
 
 interface TableProps {
   veiculosPaginados: Veiculo[];
