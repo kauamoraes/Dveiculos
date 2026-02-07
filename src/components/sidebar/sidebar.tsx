@@ -9,7 +9,7 @@ export function Header() {
 
   return (
     <div className="w-56 border-r h-screen">
-      <img src="/src/assets/logo.png" alt="Logo Dveiculos" />
+      <img src="/assets/logo.png" alt="Logo Dveiculos" />
 
       <nav>
         <ul className="mt-8">
