@@ -44,7 +44,7 @@ export function TableCliente({
     <div>
       {/* Cabeçalho */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-white">Lista de Clientes</h2>
+        <h2 className="text-xl font-bold text-orange-500">Lista de Clientes</h2>
         <button
           onClick={onOpenModal}
           className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition"
