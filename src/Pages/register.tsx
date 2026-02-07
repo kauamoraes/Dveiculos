@@ -28,7 +28,7 @@ export function Register() {
     try {
       setLoading(true);
 
-      const res = await fetch("http://localhost:3000/api/auth/criar-senha", {
+      const res = await fetch("https://back-end-dveiculos.onrender.com/api/auth/criar-senha", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

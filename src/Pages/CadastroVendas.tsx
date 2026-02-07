@@ -149,6 +149,7 @@ export function CadastroVendas() {
     window.open(`https://back-end-dveiculos.onrender.com/sales/${saleId}/contrato-docx`, "_blank")
   }
 
+
   // Aplica máscara monetária
   const aplicarMascaraMonetaria = (valor: string): string => {
     const valorLimpo = valor.replace(/\D/g, '')
